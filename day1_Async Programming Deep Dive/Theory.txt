@@ -1,0 +1,877 @@
+## Async Programming  
+Async programming is one of the most important concepts for building high-performance APIs.
+It allows a single application to handle thousands of requests efficiently without creating 
+thousands of threads.
+
+# Traditional Synchronous Execution
+
+In synchronous programming, tasks execute one after another.
+
+import time
+
+def task1():
+    time.sleep(3)
+    print("Task 1 completed")
+
+def task2():
+    time.sleep(2)
+    print("Task 2 completed")
+
+task1()
+task2()
+
+# Timeline
+Task1 ---> 3 sec
+Task2 ---> 2 sec
+Total = 5 sec
+The CPU waits during sleep().
+
+# Asynchronous Execution
+
+import asyncio
+
+async def task1():
+    await asyncio.sleep(3)
+    print("Task 1 completed")
+
+async def task2():
+    await asyncio.sleep(2)
+    print("Task 2 completed")
+
+Both tasks can run concurrently.
+
+# Timeline
+Task1 ---> 3 sec
+Task2 ---> 2 sec
+Total ≈ 3 sec
+The application does not waste time waiting.
+
+## Python Asyncio Fundamentals
+Python provides the asyncio module for asynchronous programming.
+
+Main components:
+-> Event Loop
+-> Coroutines
+-> Tasks
+-> Futures
+
+Event Loop
+
+The Event Loop is the heart of asyncio.
+
+It continuously checks:
+
+Task 1 ready?
+Task 2 waiting?
+Task 3 completed?
+
+and decides which task should run.
+
+How Event Loop Works
+Start Event Loop
+       |
+       v
+Run Task A
+       |
+Task A waiting for I/O
+       |
+       v
+Switch to Task B
+       |
+Task B waiting
+       |
+       v
+Switch to Task C
+       |
+Task A becomes ready
+       |
+       v
+Resume Task A
+Example
+import asyncio
+
+async def hello():
+    print("Hello")
+    await asyncio.sleep(2)
+    print("World")
+
+asyncio.run(hello())
+
+Output:
+
+Hello
+(wait 2 seconds)
+World
+
+Internally:
+
+asyncio.run()
+
+creates and starts an event loop.
+
+2. Coroutines
+
+A Coroutine is a special function that can pause and resume execution.
+
+Created using:
+
+async def
+Normal Function
+def greet():
+    return "Hello"
+
+Runs completely.
+
+Coroutine
+async def greet():
+    return "Hello"
+
+Does not run immediately.
+
+Instead it returns:
+
+<coroutine object>
+Example
+async def greet():
+    print("Hello")
+
+obj = greet()
+
+print(obj)
+
+Output:
+
+<coroutine object greet at ...>
+
+To execute:
+
+asyncio.run(greet())
+
+Tasks
+
+Tasks allow coroutines to run concurrently.
+
+Without Task
+
+await task1()
+await task2()
+
+Runs sequentially.
+
+task1 finishes
+task2 starts
+With Task
+t1 = asyncio.create_task(task1())
+t2 = asyncio.create_task(task2())
+
+await t1
+await t2
+
+Runs concurrently.
+
+Example
+
+import asyncio
+
+async def worker(name):
+    print(f"{name} started")
+    await asyncio.sleep(2)
+    print(f"{name} finished")
+
+async def main():
+    t1 = asyncio.create_task(worker("A"))
+    t2 = asyncio.create_task(worker("B"))
+
+    await t1
+    await t2
+
+asyncio.run(main())
+
+Output:
+
+A started
+B started
+(wait 2 sec)
+A finished
+B finished
+6. Futures
+
+A Future is a placeholder for a value that will be available later.
+
+Think:
+Promise of a future result
+
+Example
+future = asyncio.Future()
+
+Initially:
+future.done()
+
+returns:
+False
+
+Set Result
+future.set_result("Success")
+
+Now:
+future.result()
+
+returns:
+Success
+
+Why Futures?
+
+Used internally by:
+--> Tasks
+--> Network operations
+--> Database drivers
+
+Usually developers work with Tasks rather than Futures directly.
+
+Relationship: Coroutine → Task → Future
+Coroutine
+    |
+create_task()
+    |
+    v
+Task
+    |
+inherits
+    |
+    v
+Future
+Task is a specialized Future.
+
+# async def vs def in FastAPI
+One of the most important concepts in FastAPI is understanding when to use async def and when to
+ use normal def.
+
+Many developers think:
+"Always use async def because it's faster."
+
+This is not true.
+
+FastAPI is smart enough to handle both, but each serves a different purpose.
+
+1. Understanding Normal Functions (def)
+A normal Python function executes synchronously.
+
+def get_user():
+    return {"name": "John"}
+
+Execution flow:
+Start
+  ↓
+Execute Function
+  ↓
+Finish
+The program waits until the function completes.
+
+Example:
+import time
+
+def task():
+    time.sleep(5)
+    return "Done"
+
+Here:
+
+time.sleep(5)
+blocks the thread for 5 seconds.
+Nothing else can happen during that period.
+
+2. Understanding Async Functions (async def)
+An async function can pause itself while waiting for something.
+
+async def get_user():
+    return {"name": "John"}
+
+Async functions use:
+await
+to temporarily yield control.
+
+Example:
+import asyncio
+
+async def task():
+    await asyncio.sleep(5)
+    return "Done"
+
+Here:
+await asyncio.sleep(5)
+does NOT block the thread.
+
+Instead:
+
+Task pauses
+↓
+Event Loop runs other tasks
+↓
+Task resumes later
+This allows high concurrency.
+
+3. FastAPI Supports Both
+FastAPI endpoint:
+
+@app.get("/")
+def home():
+    return {"message": "Hello"}
+
+or
+
+@app.get("/")
+async def home():
+    return {"message": "Hello"}
+
+Both work.
+FastAPI internally detects whether the endpoint is synchronous or asynchronous.
+
+4. What Happens Internally?
+When a request arrives:
+
+For async def
+@app.get("/")
+async def home():
+    return {"msg": "hello"}
+
+FastAPI executes directly inside the Event Loop.
+
+Request
+   ↓
+Event Loop
+   ↓
+Async Function
+   ↓
+Response
+
+No extra thread is required.
+
+For def
+@app.get("/")
+def home():
+    return {"msg": "hello"}
+
+FastAPI runs it inside a Thread Pool.
+
+Request
+   ↓
+Thread Pool
+   ↓
+Sync Function
+   ↓
+Response
+
+This prevents the event loop from being blocked.
+
+5. Event Loop Concept
+The Event Loop is the heart of asynchronous programming.
+Think of it as a manager.
+
+Instead of waiting:
+--> Task A waiting
+--> Task B waiting
+--> Task C waiting
+
+the loop does:
+
+Start Task A
+Task A waiting for DB
+
+Start Task B
+Task B waiting for API
+
+Start Task C
+Task C waiting for File
+
+Resume A
+Resume B
+Resume C
+One thread can handle thousands of waiting operations.
+
+6. Why Async Exists
+
+Most web applications spend time waiting for:
+
+-->Database queries
+-->External APIs
+-->File operations
+-->Email services
+-->Network requests
+
+Example:
+await db.execute(query)
+Database may take:
+
+100 ms
+500 ms
+2 sec
+CPU is doing nothing during this wait.
+Async allows another request to use that time.
+
+7. Blocking vs Non-Blocking
+Blocking Example
+import time
+
+@app.get("/")
+async def home():
+    time.sleep(5)
+    return {"msg": "done"}
+
+Problem:
+
+time.sleep()
+
+blocks the event loop.
+
+While sleeping:
+
+Request 1 → Running
+Request 2 → Waiting
+Request 3 → Waiting
+
+Everything stops.
+
+Non-Blocking Example
+import asyncio
+
+@app.get("/")
+async def home():
+    await asyncio.sleep(5)
+    return {"msg": "done"}
+
+Now:
+
+Request 1 → Waiting
+Request 2 → Running
+Request 3 → Running
+The server remains responsive.
+
+
+## asyncio. Gather for parallel operations
+asyncio.gather() lets you run multiple asynchronous tasks concurrently and wait for all of them 
+to finish. It is one of the most important tools in Python's asyncio ecosystem.
+
+--> With asyncio, tasks usually run on a single thread. They are not truly executing CPU instructions
+in parallel on multiple cores. Instead, they make progress concurrently by cooperating with the 
+event loop.
+
+This is ideal for I/O-bound operations:
+-> Network requests
+-> Database queries
+-> Reading/writing files (with async libraries)
+-> Waiting for timers
+
+# Analogy
+Imagine a chef preparing three dishes. While one dish is baking, the chef can chop vegetables for 
+another and stir a third. The chef isn't doing three things at the exact same nanosecond, but work
+on all dishes progresses efficiently. That's concurrency.
+
+# Basic Usage
+Expected behavior:
+-> All three tasks start immediately.
+->  finishes after 1 second.
+->  finishes after 2 seconds.
+->  finishes after 3 seconds.
+->  gather() returns after all tasks complete.
+Total runtime is about 3 seconds, not 6 seconds.
+
+# gather() Works Internally
+
+When you call:
+gather() does roughly this:
+-> Wraps each coroutine in a Task (if it isn't already one).
+-> Schedules all tasks on the event loop.
+-> Suspends the current coroutine until all tasks finish.
+-> Collects results in the same order as the arguments.
+Even if task B finishes first, the returned list still matches the input order.
+
+# It's Faster for I/O
+Suppose each API call takes 2 seconds.
+Sequential:
+Concurrent with gather:
+All requests wait on the network at the same time.
+-> Exception Handling
+-> Default Behavior
+If any task raises an exception, gather() raises that exception.
+
+Output:
+The exception propagates to the caller.
+Collect Exceptions Instead
+Use return_exceptions=True.
+
+Output:
+This is useful when you want partial success.
+Cancellation Behavior
+Tasks in gather() can be cancelled.
+When the gather task is cancelled, the underlying tasks are also cancelled (unless they have 
+already finished).
+
+gather() vs create_task()
+
+Feature                           gather()                            create_task()
+Runs concurrently                   Yes                                    Yes
+Waits for completion                Yes                                    No (unless awaited later)
+Collects results                    Yes                                    Manually
+Best for               "Run these together and wait for all "       Background or long-lived tasks
+
+Example using create_task:
+gather() is essentially a convenient way to create and await multiple tasks together.
+
+
+## async SQL Alchemy queries
+Async SQLAlchemy allows your application to perform database operations without blocking the 
+execution of other tasks. It is especially useful in frameworks like FastAPI, where many requests 
+can be handled concurrently.
+
+1.Async Database Queries
+Traditional (Synchronous) Query
+users = session.query(User).all()
+
+What happens?
+-> Application sends query to database.
+-> Application waits for response.
+-> During waiting time, nothing else can happen in that thread.
+
+App -----> Database
+      Waiting...
+Database -----> Response
+
+-> This blocking behavior can reduce performance when handling many users.
+Async Query
+result = await session.execute(select(User))
+
+What happens?
+-> Query is sent to database.
+-> Event loop switches to another task.
+-> When database responds, execution resumes.
+
+Task A ---> DB Query
+       Waiting...
+
+Task B Running
+Task C Running
+
+DB Response
+Task A Continues
+This improves scalability.
+
+2. SQLAlchemy Async Architecture
+SQLAlchemy uses:
+
+Application
+     |
+Async Session
+     |
+Async Engine
+     |
+Async Driver
+     |
+Database
+
+Example:
+
+FastAPI
+    ↓
+AsyncSession
+    ↓
+AsyncEngine
+    ↓
+asyncpg
+    ↓
+PostgreSQL
+
+3. Required Packages
+For PostgreSQL:
+-> pip install sqlalchemy
+-> pip install asyncpg
+
+For FastAPI:
+-> pip install fastapi uvicorn
+
+## async HTTP calls with HTTPs
+Async HTTP calls are one of the most important concepts in modern Python web development, especially
+ when building APIs using frameworks like FastAPI.
+
+1. What is an HTTP Call?
+An HTTP call is a request sent from one application to another over the internet or a network.
+
+Example:
+import requests
+
+response = requests.get(
+    "https://jsonplaceholder.typicode.com/users/1"
+)
+
+print(response.json())
+
+Here:
+
+Your application sends a request.
+Server receives it.
+Server processes it.
+Server sends response.
+Your application waits until response arrives.
+
+This waiting time is called I/O wait time.
+
+2. The Problem with Synchronous HTTP Calls
+
+Consider:
+import requests
+user = requests.get("/user")
+orders = requests.get("/orders")
+payments = requests.get("/payments")
+
+Timeline:
+Request 1 ---> Wait ---> Response
+Request 2 ---> Wait ---> Response
+Request 3 ---> Wait ---> Response
+
+If each API takes:
+
+User API      = 2 sec
+Orders API    = 2 sec
+Payments API  = 2 sec
+
+Total:
+2 + 2 + 2 = 6 seconds
+Because each request waits for the previous one.
+This is called blocking execution.
+
+3. What is Asynchronous HTTP Calling?
+Instead of waiting for one response before sending the next request:
+
+Task 1 -> Running
+Task 2 -> Running
+Task 3 -> Running
+
+Python can start all requests together.
+
+Request 1 ─┐
+Request 2 ─┼── Running together
+Request 3 ─┘
+
+If all take 2 seconds:
+Total ≈ 2 seconds
+instead of 6 seconds.
+This is the power of async programming.
+
+4. Why HTTPX?
+
+Historically:
+requests
+was the most popular HTTP client.
+But requests is synchronous.
+
+For async applications, we use:
+pip install httpx
+
+HTTPX supports:
+
+-> Async requests
+-> HTTP/1.1
+-> HTTP/2
+-> Connection pooling
+-> Timeout handling
+-> Authentication
+-> Retries (via extensions)
+-> FastAPI integration
+
+5. HTTPX Architecture
+
+Synchronous:
+import requests
+response = requests.get(url)
+
+Asynchronous:
+import httpx
+
+async with httpx.AsyncClient() as client:
+    response = await client.get(url)
+
+Key points:
+AsyncClient
+
+Manages:
+-> Connections
+-> Sessions
+-> Pooling
+-> Keep-alive
+-> await
+
+Tells Python:
+"Pause this task and allow other tasks to run while waiting."
+
+6. Installation
+pip install httpx
+
+Verify:
+import httpx
+print(httpx.__version__)
+
+
+7. First Async HTTP Request
+import asyncio
+import httpx
+
+async def get_user():
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://jsonplaceholder.typicode.com/users/1"
+        )
+
+        print(response.json())
+
+asyncio.run(get_user())
+
+Flow:
+Create AsyncClient
+      ↓
+Send Request
+      ↓
+Wait (non-blocking)
+      ↓
+Receive Response
+      ↓
+Parse JSON
+
+
+8. Understanding AsyncClient
+Bad Practice
+async def get_data():
+
+    client = httpx.AsyncClient()
+
+    response = await client.get(url)
+
+    return response
+
+Connection remains open.
+
+Good Practice
+async with httpx.AsyncClient() as client:
+    response = await client.get(url)
+
+When block exits:
+client.close()
+happens automatically.
+
+
+## asyncio. Sleep for non-blocking waits
+asyncio.sleep() is one of the most important functions in Python's asyncio framework. It allows a coroutine to pause execution without blocking the entire program.
+
+1. Why Do We Need asyncio.sleep()?
+In normal synchronous programming, we use:
+
+import time
+print("Start")
+time.sleep(5)
+print("End")
+Output
+Start
+(waits 5 seconds)
+End
+Problem
+
+During those 5 seconds:
+
+CPU cannot execute the next statement in this thread.
+Other tasks must wait.
+The program is blocked.
+
+This is called a blocking operation.
+
+2. What is Non-Blocking Waiting?
+In asynchronous programming, when one task is waiting, we want other tasks to continue running.
+
+Instead of:
+time.sleep(5)
+
+we use:
+await asyncio.sleep(5)
+
+This tells the event loop:
+"I don't need CPU for the next 5 seconds. You can run other tasks meanwhile."
+
+3. Basic Syntax
+await asyncio.sleep(seconds)
+
+Example:
+import asyncio
+
+async def main():
+    print("Start")
+    await asyncio.sleep(3)
+    print("End")
+
+asyncio.run(main())
+
+Output:
+
+Start
+(waits 3 seconds)
+End
+4. How asyncio.sleep() Works Internally
+
+Consider:
+await asyncio.sleep(5)
+
+Step 1
+Coroutine reaches sleep.
+
+Task A
+ |
+ |-----> sleep(5)
+
+Step 2
+Task A is suspended.
+Task A = Paused
+
+Step 3
+Control returns to Event Loop.
+
+Event Loop
+   |
+   +---- Run Task B
+   +---- Run Task C
+   +---- Run Task D
+
+Step 4
+After 5 seconds:
+Timer expires
+
+-> Event loop schedules Task A again.
+-> Task A resumes
+-> This is why sleep is called non-blocking.
+
+5. Comparing time.sleep() vs asyncio.sleep()
+Using time.sleep()
+import asyncio
+import time
+
+async def task():
+    print("Task started")
+    time.sleep(5)
+    print("Task finished")
+
+asyncio.run(task())
+Problem
+
+The whole event loop freezes.
+Nothing else can run.
+
+Using asyncio.sleep()
+import asyncio
+
+async def task():
+    print("Task started")
+    await asyncio.sleep(5)
+    print("Task finished")
+
+asyncio.run(task())
+Benefit
+Event loop remains free to execute other tasks.
+
+## practice: endpoint that fetches data from 3 external APIs in parallel vs sequential 
+

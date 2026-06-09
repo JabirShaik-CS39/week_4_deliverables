@@ -1,0 +1,982 @@
+## Redis Caching & Session Management
+Redis is an in-memory data store used for:
+-> Caching
+-> Session storage
+-> Rate limiting
+-> Queues
+-> Real-time analytics
+-> Pub/Sub messaging
+Because Redis stores data in memory (RAM), it is extremely fast (microseconds to milliseconds).
+
+1. Installing Redis
+Windows
+
+Option 1: Docker (Recommended)
+docker run -d \
+  --name redis-server \
+  -p 6379:6379 \
+  redis
+
+Check:
+docker ps
+
+Option 2: Redis Stack
+Download from:
+https://redis.io/download
+
+Linux
+Ubuntu:
+
+-> sudo apt update
+-> sudo apt install redis-server
+-> sudo systemctl start redis
+-> sudo systemctl enable redis
+
+Check:
+redis-cli ping
+
+Output:
+PONG
+
+2. Install Python Redis Client
+Modern Redis async support is built into redis-py.
+
+Install:
+pip install redis
+
+# Redis Async Connection
+Redis Async Client (redis-py Async API / aioredis) – Complete Guide
+
+Important: The original aioredis project has been merged into redis-py. Modern applications use:
+
+pip install redis
+
+and import:
+
+import redis.asyncio as redis
+
+instead of the old:
+
+import aioredis
+1. What is Redis?
+
+Redis is an in-memory data store used for:
+
+Caching
+Session storage
+Rate limiting
+Message queues
+Pub/Sub
+Real-time analytics
+Distributed locks
+
+Because data is stored in RAM, Redis is extremely fast (microseconds).
+
+2. Why Async Redis?
+
+In FastAPI, multiple requests are handled concurrently.
+
+Imagine:
+
+@app.get("/user/{id}")
+async def get_user(id: int):
+    data = redis_client.get(f"user:{id}")
+    return data
+
+If Redis takes 50ms:
+
+Request waits
+Event loop blocks
+Other requests slow down
+
+With Async Redis:
+
+@app.get("/user/{id}")
+async def get_user(id: int):
+    data = await redis_client.get(f"user:{id}")
+    return data
+
+While Redis responds:
+
+Event loop serves other users
+Higher throughput
+Better scalability
+
+
+3. Installing Redis Client
+Redis Server
+Docker
+docker run -d \
+-p 6379:6379 \
+redis
+Verify
+redis-cli ping
+
+Output:
+
+PONG
+Python Package
+pip install redis
+
+4. Creating Async Redis Connection
+import redis.asyncio as redis
+
+redis_client = redis.Redis(
+    host="localhost",
+    port=6379,
+    decode_responses=True
+)
+
+Parameters:
+
+Parameter	Purpose
+host	Redis host
+port	Redis port
+db	Redis database
+password	Authentication
+decode_responses	Return strings instead of bytes
+
+## 
+Caching is used to reduce database load, improve API response time, and handle high traffic 
+efficiently.
+In FastAPI applications, Redis is commonly used as a cache layer between the application and 
+the database.
+Why Caching?
+
+Without Cache:
+
+Client
+   ↓
+FastAPI
+   ↓
+Database
+
+Every request hits the database.
+
+Problems:
+
+Slow responses
+High DB load
+Increased infrastructure costs
+
+With Cache:
+
+Client
+   ↓
+FastAPI
+   ↓
+Redis Cache
+   ↓ (if miss)
+Database
+
+Benefits:
+
+Faster responses
+Reduced database load
+Better scalability
+1. Cache-Aside Pattern (Lazy Loading)
+
+Most common caching strategy.
+
+How It Works
+Read Flow
+Request
+   ↓
+Check Cache
+   ↓
+Cache Hit? ---- Yes ----> Return Data
+   ↓ No
+Database Query
+   ↓
+Store in Cache
+   ↓
+Return Data
+Write Flow
+Update Database
+      ↓
+Delete Cache
+
+Cache is only populated when data is requested.
+
+Example
+
+Product API:
+
+GET /products/1
+Step 1
+
+Check Redis:
+
+product = await redis.get("product:1")
+
+If exists:
+
+return json.loads(product)
+Step 2
+
+If not exists
+
+Query database:
+
+product = await session.get(Product, 1)
+Step 3
+
+Store in cache
+
+await redis.set(
+    "product:1",
+    json.dumps(product_dict),
+    ex=300
+)
+
+TTL = 300 seconds
+
+Step 4
+
+Return response
+return product_dict
+
+## Product Listing Cache with TTL
+
+One of the most common interview and production scenarios.
+
+API
+GET /products
+
+Returns:
+
+[
+  {
+    "id": 1,
+    "name": "Laptop",
+    "price": 50000
+  }
+]
+Problem Without Cache
+
+Every request:
+
+Client
+  ↓
+Database
+
+For thousands of users:
+
+SELECT * FROM products;
+
+runs repeatedly.
+
+Solution: Cache Product Listing
+Cache Key
+products:list
+Read Flow
+Request
+   ↓
+Redis
+   ↓
+Hit? → Return
+   ↓
+Miss
+   ↓
+Database
+   ↓
+Store in Redis
+   ↓
+Return
+
+TTL = Time To Live
+
+Defines how long data remains in Redis.
+
+Example:
+
+await redis.set(
+    "products:list",
+    data,
+    ex=300
+)
+
+Meaning:
+
+300 seconds
+= 5 minutes
+
+After 5 minutes:
+
+Redis automatically deletes key
+Checking TTL
+ttl = await redis.ttl("products:list")
+
+print(ttl)
+
+Output:
+
+250
+
+Meaning:
+
+250 seconds remaining.
+
+Invalidating Product Listing Cache
+
+Whenever product changes:
+
+POST /products
+PUT /products/{id}
+DELETE /products/{id}
+
+Delete listing cache:
+
+await redis.delete("products:list")
+
+This forces fresh product list generation.
+
+Real Production Strategy
+
+For an e-commerce application:
+
+Product Details
+Key:
+product:1
+product:2
+product:3
+
+TTL: 10 minutes
+Product Listings
+products:list
+
+TTL: 5 minutes
+Category Listings
+products:electronics
+products:fashion
+products:grocery
+
+TTL: 5 minutes
+Search Results
+products:search:laptop
+
+TTL: 1 minute
+Interview Answer (Short Version)
+
+Cache-Aside
+
+Check cache first.
+On miss, fetch from DB.
+Store result in cache.
+On update, invalidate cache.
+Best for read-heavy applications.
+
+Write-Through
+
+Update DB and cache simultaneously.
+Cache always stays fresh.
+Faster reads but more write overhead.
+
+Product Listing Cache with TTL
+
+Store product list in Redis using a key like products:list.
+Set TTL (ex=300) to auto-expire data.
+Invalidate cache when products are created, updated, or deleted.
+Reduces database load and improves API response times significantly.
+Typical FastAPI + Redis Interview Architecture
+Client
+   ↓
+FastAPI
+   ↓
+Redis (Check Cache)
+   ↓ Miss
+PostgreSQL
+   ↓
+Store in Redis (TTL)
+   ↓
+Return Response
+
+
+## Caching Database Queries
+
+Without Redis:
+
+result = await db.execute(query)
+
+Database hit every request.
+
+With Redis:
+
+cache = await redis_client.get(
+    "products"
+)
+
+if cache:
+    return json.loads(cache)
+
+products = await db.execute(query)
+
+await redis_client.set(
+    "products",
+    json.dumps(products),
+    ex=300
+)
+
+return products
+
+Flow:
+
+Request
+   ↓
+Redis Cache?
+   ↓
+ Yes → Return
+   ↓
+ No
+   ↓
+Database Query
+   ↓
+Store in Redis
+   ↓
+Return Response
+
+# Redis Architecture
+
+Client
+   │
+   ▼
+FastAPI
+   │
+   ├── PostgreSQL
+   │      └── Permanent Data
+   │
+   └── Redis
+          ├── Sessions
+          ├── Cache
+          ├── Rate Limiting
+          ├── OTP Storage
+          └── Background Job Queue
+
+## Cache invalidation on update/delete
+Cache invalidation is the process of removing or updating cached data when the original data in 
+the database changes.
+Without cache invalidation, users may see stale (outdated) data.
+
+Example
+Database:
+
+{
+    "id": 1,
+    "name": "Laptop",
+    "price": 50000
+}
+
+Cached in Redis:
+product:1
+{
+    "id": 1,
+    "name": "Laptop",
+    "price": 50000
+}
+
+Now suppose the price changes to:
+
+{
+    "id": 1,
+    "name": "Laptop",
+    "price": 55000
+}
+
+If Redis cache is not updated, users still see:
+{
+    "id": 1,
+    "name": "Laptop",
+    "price": 50000
+}
+
+This is called stale cache.
+Why Cache Invalidation Matters
+
+Cache is only useful if:
+Fast + Correct
+
+-> Without invalidation:
+-> Fast + Wrong
+-> which is worse than slow.
+-> Common Cache Patterns
+
+1. Cache Aside Pattern (Most Common)
+Application controls cache manually.
+
+Read Flow
+User Request
+      │
+      ▼
+Redis Cache
+      │
+  Hit │ Miss
+      ▼
+Database
+      │
+      ▼
+Store in Redis
+      │
+      ▼
+Return Response
+
+## Redis TTL-Based Invalidation
+TTL = Time To Live
+await redis.set(
+    "product:1",
+    data,
+    ex=300
+)
+
+Meaning:
+-> Expire after 5 minutes  
+-> Even if invalidation is missed:
+-> Worst stale time = 5 minutes
+-> TTL acts as a safety net.
+-> Write Through Cache
+
+When updating:
+
+Write DB
+      │
+      ▼
+Write Redis
+
+Example:
+await db.commit()
+
+await redis.set(
+    f"product:{id}",
+    json.dumps(updated_product),
+    ex=300
+)
+
+Used when read traffic is very high.
+
+Best Practice
+For most FastAPI applications:
+
+Read:
+    Cache Aside Pattern
+
+Create:
+    Delete Related Cache
+
+Update:
+    Delete Related Cache
+
+Delete:
+    Delete Related Cache
+
+TTL:
+    5–30 minutes
+
+This is the simplest and safest strategy.
+
+Redis as Session Store
+What is a Session?
+A session stores user information between requests.
+
+Without session:
+Request 1 → User logs in
+Request 2 → Server forgets user
+
+With session:
+Request 1 → Login
+Request 2 → User recognized
+Request 3 → User recognized
+Why Use Redis for Sessions?
+
+Redis is:
+-> Extremely fast
+-> In-memory
+-> Supports expiration
+-> Shared across multiple servers
+-> Scalable
+
+Perfect for session storage.
+
+Session Flow
+User Login
+     │
+     ▼
+Create Session
+     │
+     ▼
+Store in Redis
+     │
+     ▼
+Return Session ID
+     │
+     ▼
+Browser stores Cookie
+
+Login Example
+User logs in:
+{
+    "email": "jabir@example.com",
+    "password": "secret"
+}
+
+Generate session:
+import uuid
+session_id = str(uuid.uuid4())
+
+Store in Redis:
+await redis.set(
+    f"session:{session_id}",
+    user_id,
+    ex=3600
+)
+
+Store for:
+1 hour
+Redis Session Structure
+session:abc123
+Value:
+{
+    "user_id": 10,
+    "role": "admin"
+}
+
+## Redis data structures (strings, hashes, lists, sorted sets)
+Redis is an in-memory data store used for:
+-> Caching
+-> Session management
+-> Rate limiting
+-> Message queues
+-> Real-time analytics
+-> Pub/Sub communication
+Because Redis stores data in RAM, operations are extremely fast (microseconds).
+
+1. Redis Data Structures
+Redis is not just a key-value store.
+It supports multiple data structures.
+
+A. Strings
+Most common Redis data type.
+Store:
+
+Text
+JSON
+Numbers
+Serialized objects
+Commands
+await redis.set("user_name", "jabir")
+name = await redis.get("user_name")
+
+print(name)
+
+Output:
+jabir
+Store Numbers
+await redis.set("views", 100)
+await redis.incr("views")
+
+Result:
+101
+
+Expiration
+Useful for caching.
+
+await redis.set(
+    "product:1",
+    '{"name":"Laptop"}',
+    ex=60
+)
+
+Expires after:
+60 seconds
+Use Cases
+Cache API response
+OTP storage
+Session tokens
+JWT blacklist
+
+B. Hashes
+Similar to Python Dictionary.
+Instead of storing entire JSON as string.
+
+Example
+User Object
+{
+    "id":1,
+    "name":"Jabir",
+    "email":"jabir@gmail.com"
+}
+
+Store as Hash:
+await redis.hset(
+    "user:1",
+    mapping={
+        "id":1,
+        "name":"Jabir",
+        "email":"jabir@gmail.com"
+    }
+)
+
+Retrieve Single Field
+name = await redis.hget(
+    "user:1",
+    "name"
+)
+
+Output:
+Jabir
+Retrieve All Fields
+user = await redis.hgetall(
+    "user:1"
+)
+
+Output:
+{
+    "id":"1",
+    "name":"Jabir",
+    "email":"jabir@gmail.com"
+}
+Advantages
+
+Instead of:
+SET user:1 {...}
+You can update one field:
+
+await redis.hset(
+    "user:1",
+    "name",
+    "new_name"
+)
+Without rewriting entire object.
+
+C. Lists
+Ordered collection.
+Like Python List.
+
+Add Items
+await redis.lpush(
+    "recent_searches",
+    "laptop"
+)
+
+await redis.lpush(
+    "recent_searches",
+    "phone"
+)
+
+List:
+["phone", "laptop"]
+Read List
+searches = await redis.lrange(
+    "recent_searches",
+    0,
+    -1
+)
+
+Output:
+["phone","laptop"]
+Queue Example
+
+Producer:
+await redis.rpush(
+    "jobs",
+    "email_task"
+)
+
+Consumer:
+job = await redis.lpop(
+    "jobs"
+)
+
+-> Use Cases
+-> Job Queue
+-> Notifications
+-> Chat messages
+-> Activity feeds
+
+D. Sorted Sets (ZSET)
+One of Redis's most powerful structures.
+
+Stores:
+value + score
+Sorted automatically by score.
+
+Example
+Leaderboard
+
+await redis.zadd(
+    "leaderboard",
+    {
+        "jabir":100,
+        "ali":80,
+        "john":120
+    }
+)
+Get Rankings
+leaders = await redis.zrevrange(
+    "leaderboard",
+    0,
+    2
+)
+
+Output:
+
+["john","jabir","ali"]
+Get Score
+score = await redis.zscore(
+    "leaderboard",
+    "john"
+)
+
+Output:
+
+120
+Use Cases
+Rate limiting
+Leaderboards
+Rankings
+Analytics
+Redis Structure Selection
+Data	Structure
+Cache	String
+User Profile	Hash
+Queue	List
+Ranking	Sorted Set
+Rate Limiter	Sorted Set
+
+## Rate Limiting Using Redis Sliding Window
+Problem
+Without rate limiting:
+-> User sends
+-> 1000 requests/sec
+-> Your API crashes.
+-> Goal
+
+Allow:
+5 requests per minute
+Fixed Window Problem
+
+Example:
+12:00:59 → 5 requests
+12:01:01 → 5 requests
+
+User sends:
+-> 10 requests in 2 seconds
+-> Still allowed.
+-> Sliding Window Solution
+-> Stores timestamp of every request.
+-> Uses Sorted Set.
+-> Workflow
+-> User makes request.
+
+Store:
+timestamp
+as score.
+
+Example:
+100
+110
+120
+130
+140
+
+Current Time:
+160
+
+Window:
+60 seconds
+
+Remove older entries:
+160 - 60 = 100
+
+Keep only:
+100-160
+Count requests.
+
+If count > limit:
+429 Too Many Requests
+
+## Cached Product API
+Without Cache
+Database hit every request.
+Client
+   ↓
+FastAPI
+   ↓
+Postgres
+   ↓
+Response
+
+@app.get("/products/{id}")
+async def get_product(id: int):
+
+    product = await db.get(
+        Product,
+        id
+    )
+
+    return product
+With Redis Cache
+
+Flow:
+
+Client
+ ↓
+Redis ?
+ ↓
+Cache Hit
+ ↓
+Response
+
+OR
+
+Cache Miss
+ ↓
+Database
+ ↓
+Redis Store
+ ↓
+Response
+
+## Cache Dashboard (Hit/Miss Ratio)
+A professional production cache should track:
+-> Cache Hits
+-> Cache Misses
+-> Hit Ratio
+-> Miss Ratio
+-> Update Counters
+
+When cache hit:
+
+await redis.incr(
+    "cache_hits"
+)
+
+When cache miss:
+
+await redis.incr(
+    "cache_misses"
+)
+
+Complete Real-World Redis Project Flow
+Client
+   |
+   v
+FastAPI Endpoint
+   |
+   +---- Rate Limiter (Redis Sorted Set)
+   |
+   +---- Cache Check (Redis String)
+           |
+           +-- Hit --> Return Response
+           |
+           +-- Miss
+                  |
+                  v
+             PostgreSQL
+                  |
+                  v
+            Save to Redis
+                  |
+                  v
+              Response
+   |
+   v
+Cache Dashboard Updates

@@ -1,0 +1,549 @@
+Celery Background Tasks 
+1. Background Tasks
+In web applications, users expect a response within milliseconds.
+Some operations take several seconds or minutes:
+-> Sending emails
+-> Generating PDFs
+-> Image processing
+-> Video transcoding
+-> AI model inference
+-> Data exports
+-> Scheduled reports
+
+If these tasks run inside the API request:
+
+User Request
+     ↓
+API waits 30 seconds
+     ↓
+Email Sent
+     ↓
+Response Returned
+
+Problems:
+
+-> Slow user experience
+-> Request timeout
+-> Server blocking
+-> Poor scalability
+
+Solution: Background Workers
+Move heavy work outside the API request cycle.
+
+User Request
+     ↓
+FastAPI
+     ↓
+Create Task
+     ↓
+Return Response Immediately
+
+               ↓
+         Celery Worker
+               ↓
+      Execute Task Later
+
+User receives:
+
+{
+  "message": "Task started"
+}
+
+instead of waiting.
+Real World Examples
+Email Sending
+
+Bad:
+
+@app.post("/register")
+async def register():
+    send_email()
+    return {"message": "success"}
+
+User waits for SMTP server.
+
+Good:
+
+@app.post("/register")
+async def register():
+    send_email_task.delay()
+    return {"message": "registered"}
+
+    
+PDF Generation
+Generate 500-page PDF
+Time: 20-40 seconds
+
+Move to worker.
+
+Image Processing
+Upload Image
+↓
+Resize
+↓
+Compress
+↓
+Apply Filters
+↓
+Store
+
+Can take several seconds.
+Perfect use case for Celery.
+
+AI Calls
+Examples:
+
+-> OpenAI
+-> Claude
+-> Gemini
+-> OCR
+-> Speech-to-Text
+
+AI responses can take 10–60 seconds.
+Never block API requests.
+
+2. Celery Architecture
+          FastAPI
+              │
+              │ create task
+              ▼
+          Redis Broker
+              │
+              │ delivers task
+              ▼
+        Celery Worker
+              │
+              ▼
+      Execute Background Job
+Components
+Producer
+
+Creates tasks.
+
+Example:
+send_email.delay()
+FastAPI acts as producer.
+Broker
+Stores messages.
+
+Common brokers:
+
+-> Redis
+-> RabbitMQ
+
+We'll use Redis.
+
+Worker
+Consumes tasks.
+celery worker
+Runs tasks.
+
+Result Backend
+Stores task results.
+
+-> SUCCESS
+-> FAILURE
+-> RESULT
+Usually Redis.
+
+3. Install Celery + Redis
+Install Redis
+
+Ubuntu:
+sudo apt install redis-server
+
+Start:
+sudo service redis start
+
+Check:
+redis-cli ping
+
+Output:
+PONG
+
+Install Packages
+pip install celery redis
+
+For FastAPI:
+pip install fastapi uvicorn
+
+
+Task Flow
+FastAPI
+   ↓
+delay()
+   ↓
+Redis
+   ↓
+Worker
+   ↓
+Execute
+
+6. Celery Worker
+
+Start worker:
+celery -A tasks worker --loglevel=info
+
+Output:
+-> Task received
+-> Task started
+-> Task completed
+
+
+7. Task States
+Celery tracks task lifecycle.
+
+PENDING
+Task created but not executed.
+-> PENDING
+
+STARTED
+Worker started execution.
+-> STARTED
+
+SUCCESS
+Task completed.
+-> SUCCESS
+
+FAILURE
+Task crashed.
+-> FAILURE
+
+Example:
+
+result = send_welcome_email.delay(
+    "user@gmail.com"
+)
+
+print(result.state)
+
+Output:
+PENDING
+
+Later:
+SUCCESS
+
+8. Task Results Backend
+Celery stores output.
+
+Task:
+
+@celery_app.task
+def add(a, b):
+    return a + b
+
+Call:
+task = add.delay(10, 20)
+
+Get result:
+task.get()
+
+Output:
+30
+
+9. Retry Logic
+Network failures happen.
+
+Example:
+-> SMTP server down
+-> AI API timeout
+-> Database unavailable
+Retry automatically.
+
+Basic Retry
+@celery_app.task(bind=True)
+def send_email(self):
+
+    try:
+        raise Exception()
+
+    except Exception as exc:
+        raise self.retry(
+            exc=exc,
+            countdown=10
+        )
+
+Exponential Backoff
+
+Instead of:
+
+10s
+10s
+10s
+
+Use:
+
+2s
+4s
+8s
+16s
+32s
+
+Example:
+
+@celery_app.task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5}
+)
+def process_ai(self):
+    pass
+
+Retries automatically.
+
+10. Generate Report Task
+@celery_app.task
+def generate_report(user_id):
+
+    import time
+
+    time.sleep(15)
+
+    return {
+        "report": "completed",
+        "user": user_id
+    }
+
+Call:
+generate_report.delay(1)
+
+
+11. Process Image Task
+from PIL import Image
+
+@celery_app.task
+def process_image(path):
+
+    image = Image.open(path)
+
+    image.thumbnail((500,500))
+
+    image.save("processed.jpg")
+
+    return "done"
+
+
+12. Celery Beat (Periodic Tasks)
+
+Used for scheduling.
+
+Examples:
+
+Daily reports
+Weekly emails
+Monthly invoices
+Configure
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+
+    "daily-report": {
+        "task": "tasks.generate_report",
+        "schedule": crontab(
+            hour=0,
+            minute=0
+        ),
+        "args": (1,)
+    }
+}
+Start Beat
+celery -A tasks beat --loglevel=info
+
+Architecture:
+
+Celery Beat
+      │
+      ▼
+    Redis
+      │
+      ▼
+Worker
+
+
+13. FastAPI Integration
+Trigger Task
+from fastapi import FastAPI
+from tasks import send_welcome_email
+
+app = FastAPI()
+
+@app.post("/register")
+async def register(email: str):
+
+    task = send_welcome_email.delay(
+        email
+    )
+
+    return {
+        "task_id": task.id
+    }
+
+Response:
+
+{
+  "task_id": "abc123"
+}
+
+
+14. Task Status Endpoint
+
+Frontend polls status.
+
+Endpoint
+from celery.result import AsyncResult
+
+@app.get("/task/{task_id}")
+async def task_status(task_id: str):
+
+    task = AsyncResult(task_id)
+
+    return {
+        "task_id": task_id,
+        "status": task.status,
+        "result": task.result
+    }
+
+Frontend:
+
+Every 2 seconds:
+GET /task/abc123
+
+Response:
+
+{
+  "status": "PENDING"
+}
+
+Later:
+
+{
+  "status": "SUCCESS",
+  "result": "Email sent"
+}
+
+
+15. Flower Monitoring
+
+Flower is Celery dashboard.
+
+Install:
+
+pip install flower
+
+Run:
+celery -A tasks flower
+
+Open:
+http://localhost:5555
+
+Features:
+ Worker Monitoring
+-> Worker Online
+-> Worker Offline
+
+Task Monitoring
+-> PENDING
+-> SUCCESS
+-> FAILURE
+
+Execution Time
+-> Task Duration
+-> Average Runtime
+
+Retries
+-> Retry Count
+-> Failed Tasks
+
+# Architecture with Flower
+                Flower
+                   │
+                   ▼
+
+FastAPI → Redis → Worker
+
+
+16. FastAPI BackgroundTasks vs Celery
+FastAPI BackgroundTasks
+
+Example:
+from fastapi import BackgroundTasks
+
+@app.post("/send")
+async def send_email(
+    background_tasks: BackgroundTasks
+):
+
+    background_tasks.add_task(
+        send_email
+    )
+
+    return {"message": "started"}
+
+Pros
+-> Simple
+-> No Redis
+-> No Worker
+-> Easy setup
+
+Cons
+-> Runs in same server
+-> Lost if server restarts
+-> No retries
+-> No scheduling
+-> No monitoring
+-> Not distributed
+
+Celery
+send_email.delay()
+
+Pros
+
+-> Distributed
+-> Retries
+-> Scheduling
+-> Monitoring
+-> Task states
+-> Multiple workers
+-> Scalable
+-> Reliable
+
+# Cons
+
+-> Needs Redis/RabbitMQ
+-> More setup
+-> More infrastructure
+
+Comparison Table
+Feature	            BackgroundTasks	            Celery
+Easy Setup	            ✅	                    ❌
+Redis Required	        ❌	                    ✅
+Retries	                ❌	                    ✅
+Scheduling	            ❌	                    ✅
+Monitoring	            ❌	                    ✅
+Multiple Workers	    ❌	                    ✅
+Result Tracking	        ❌	                    ✅
+Production Ready	  Limited	                  ✅
+
+# Production Architecture
+
+                    Client
+                       │
+                       ▼
+                   FastAPI
+                       │
+         Create Background Task
+                       │
+                       ▼
+                    Redis
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+     Worker1       Worker2       Worker3
+        │              │              │
+        ▼              ▼              ▼
+ Email Task     PDF Task      AI Task
+
+                       │
+                       ▼
+                    Flower

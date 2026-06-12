@@ -11,6 +11,9 @@ async def test_add():
 
     assert result == 5
 
+
+
+
 ## Example API
 @app.get("/hello")
 async def hello():
@@ -32,6 +35,9 @@ async def test_hello(app):
         "message": "Hello"
     }
 
+
+
+
 ## Example Fixture
 import pytest
 
@@ -43,6 +49,9 @@ def sample_user():
         "email": "jabir@test.com"
     }
 
+
+
+
 ## FastAPI App Fixture
 @pytest.fixture
 def app():
@@ -50,6 +59,9 @@ def app():
     from app.main import app
 
     return app
+
+
+
 
 
 ## Client Fixture
@@ -65,6 +77,8 @@ async def client(app):
 
         yield client
 
+
+
 ## Create User Test
 async def test_create_user(client):
 
@@ -77,12 +91,16 @@ async def test_create_user(client):
     )
 
     assert response.status_code == 201
+
+
 # Get Users
 async def test_get_users(client):
 
     response = await client.get("/users")
 
     assert response.status_code == 200
+
+
 # Update User
 async def test_update_user(client):
 
@@ -92,6 +110,8 @@ async def test_update_user(client):
     )
 
     assert response.status_code == 200
+
+
 # Delete User
 async def test_delete_user(client):
 
@@ -100,6 +120,8 @@ async def test_delete_user(client):
     )
 
     assert response.status_code == 204
+
+
 
 ## Testing Authentication Flow
 # Register Test
@@ -114,6 +136,8 @@ async def test_register(client):
     )
 
     assert response.status_code == 201
+
+    
 
 # Login Test
 async def test_login(client):

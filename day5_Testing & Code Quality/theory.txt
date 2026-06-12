@@ -324,97 +324,80 @@ Tests run fast.
 
 MagicMock Example
 from unittest.mock import MagicMock
-
 mock_db = MagicMock()
-
 mock_db.commit.return_value = None
 
 9. Coverage Report (pytest-cov)
 Coverage tells how much code was tested.
 
 Install:
-
 pip install pytest-cov
 Run Coverage
 pytest --cov=app
 
 Output:
-
 Name              Coverage
-
 users.py          95%
 auth.py           92%
 services.py       88%
 
 TOTAL             91%
+
+
 HTML Report
 pytest \
 --cov=app \
 --cov-report=html
 
 Generates:
-
-htmlcov/index.html
-
-Open in browser.
-
-Target Coverage
+-> htmlcov/index.html
+-> Open in browser.
+-> Target Coverage
 
 Recommended:
-
 80%+ Minimum
 90%+ Ideal
 
 But:
-
 Coverage ≠ Quality
-
 Bad tests can still produce high coverage.
-
 Coverage Focus
 
 Test:
+-> Success paths
+-> Failure paths
+-> Exceptions
+-> Edge cases
+-> Security flows
 
-✓ Success paths
-✓ Failure paths
-✓ Exceptions
-✓ Edge cases
-✓ Security flows
 10. Pre-Commit Hooks
-
 Automatically run checks before commit.
-
 Install:
 
-pip install pre-commit
-Tools
-Black
+-> pip install pre-commit
+-> Tools
+-> Black
 
 Code formatter.
-
 pip install black
 
 Format:
-
-black .
-isort
+-> black .
+-> isort
 
 Sort imports.
-
 pip install isort
 
 Example:
 
 Before:
-
-import os
-from fastapi import FastAPI
-import sys
+-> import os
+-> from fastapi import FastAPI
+-> import sys
 
 After:
-
-import os
-import sys
+-> import os
+-> import sys
 
 from fastapi import FastAPI
 flake8
@@ -424,25 +407,20 @@ Linting.
 pip install flake8
 
 Finds:
-
-Unused imports
-Long lines
-Style issues
-mypy
+-> Unused imports
+-> Long lines
+-> Style issues
+-> mypy
 
 Static type checking.
-
 pip install mypy
 
 Example:
-
 def add(a: int, b: int) -> int:
     return a + b
 
 Error:
-
 add("a", 10)
-
 Mypy catches this.
 
 ## .pre-commit-config.yaml
@@ -468,51 +446,61 @@ repos:
       - id: mypy
 
 Install:
-
 pre-commit install
-
 Now every commit runs checks automatically.
 
 11. Code Review Checklist
-
 Before merging code:
 
 API Design
-✓ Proper HTTP methods
-✓ Proper status codes
-✓ Consistent naming
-✓ API versioning
+-> Proper HTTP methods
+-> Proper status codes
+-> Consistent naming
+-> API versioning
+
+
 Security
-✓ Password hashing
-✓ JWT validation
-✓ Input validation
-✓ SQL injection protection
-✓ Role permissions
+-> Password hashing
+-> JWT validation
+-> Input validation
+-> SQL injection protection
+-> Role permissions
+
+
 Database
-✓ Transactions handled
-✓ No N+1 queries
-✓ Indexes present
-✓ Foreign keys correct
+-> Transactions handled
+-> No N+1 queries
+-> Indexes present
+-> Foreign keys correct
+
+
 Error Handling
-✓ Meaningful messages
-✓ Proper exceptions
-✓ Logging present
+-> Meaningful messages
+-> Proper exceptions
+-> Logging present
+
+
 Testing
-✓ Unit tests added
-✓ Integration tests added
-✓ Edge cases covered
-✓ Coverage > 80%
+-> Unit tests added
+-> Integration tests added
+-> Edge cases covered
+-> Coverage > 80%
+
+
 Performance
-✓ Async used correctly
-✓ Pagination implemented
-✓ Caching where needed
-✓ No blocking operations
+-> Async used correctly
+-> Pagination implemented
+-> Caching where needed
+-> No blocking operations
+
+
 Code Quality
-✓ Black passes
-✓ isort passes
-✓ flake8 passes
-✓ mypy passes
-✓ No duplicated code
+-> Black passes
+-> isort passes
+-> flake8 passes
+-> mypy passes
+-> No duplicated code
+
 Recommended FastAPI Testing Project Structure
 project/
 │

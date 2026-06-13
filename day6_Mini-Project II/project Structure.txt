@@ -1,0 +1,124 @@
+## Mini-Project Structure folder
+
+ecommerce_backend/
+│
+├── app/
+│   │
+│   ├── main.py
+│   │
+│   ├── api/
+│   │   ├── deps.py
+│   │   │
+│   │   ├── v1/
+│   │   │   ├── auth.py
+│   │   │   ├── users.py
+│   │   │   ├── products.py
+│   │   │   ├── cart.py
+│   │   │   ├── orders.py
+│   │   │   └── websocket.py
+│   │
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   ├── constants.py
+│   │   ├── exceptions.py
+│   │   └── logging.py
+│   │
+│   ├── database/
+│   │   ├── session.py
+│   │   ├── base.py
+│   │   └── seed.py
+│   │
+│   ├── models/
+│   │   ├── user.py
+│   │   ├── product.py
+│   │   ├── order.py
+│   │   ├── order_item.py
+│   │   └── refresh_token.py
+│   │
+│   ├── schemas/
+│   │   ├── user.py
+│   │   ├── auth.py
+│   │   ├── product.py
+│   │   ├── cart.py
+│   │   ├── order.py
+│   │   └── common.py
+│   │
+│   ├── repositories/
+│   │   ├── user_repository.py
+│   │   ├── product_repository.py
+│   │   ├── cart_repository.py
+│   │   └── order_repository.py
+│   │
+│   ├── services/
+│   │   ├── auth_service.py
+│   │   ├── user_service.py
+│   │   ├── product_service.py
+│   │   ├── cart_service.py
+│   │   ├── order_service.py
+│   │   ├── cache_service.py
+│   │   ├── email_service.py
+│   │   └── websocket_service.py
+│   │
+│   ├── tasks/
+│   │   ├── celery_app.py
+│   │   └── order_tasks.py
+│   │
+│   ├── websocket/
+│   │   └── connection_manager.py
+│   │
+│   ├── redis/
+│   │   ├── client.py
+│   │   ├── cache.py
+│   │   └── cart.py
+│   │
+│   ├── uploads/
+│   │   └── products/
+│   │
+│   ├── utils/
+│   │   ├── pagination.py
+│   │   ├── filters.py
+│   │   ├── file_upload.py
+│   │   ├── response.py
+│   │   └── validators.py
+│   │
+│   └── middleware/
+│       ├── auth_middleware.py
+│       ├── logging_middleware.py
+│       └── rate_limit.py
+│
+├── alembic/
+│   ├── versions/
+│   └── env.py
+│
+├── tests/
+│   │
+│   ├── conftest.py
+│   │
+│   ├── test_auth.py
+│   ├── test_users.py
+│   ├── test_products.py
+│   ├── test_cart.py
+│   ├── test_orders.py
+│   ├── test_cache.py
+│   ├── test_websocket.py
+│   └── test_tasks.py
+│
+├── docs/
+│   ├── swagger_examples.md
+│   ├── api_flow.md
+│   └── database_schema.md
+│
+├── postman/
+│   └── ecommerce_api_collection.json
+│
+├── logs/
+│   └── app.log
+│
+├── .env
+├── .env.example
+├── requirements.txt
+├── docker-compose.yml
+├── Dockerfile
+├── README.md
+└── pytest.ini

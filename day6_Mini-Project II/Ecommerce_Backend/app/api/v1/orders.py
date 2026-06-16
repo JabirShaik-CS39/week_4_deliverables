@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-
+from fastapi import BackgroundTasks
+from app.tasks.invoice_tasks import generate_invoice
 from app.database.session import get_db
 from app.core.security import get_current_user, require_admin
 
@@ -18,6 +19,7 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
 # =========================
 @router.post("/create")
 async def create_order(
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user)
 ):

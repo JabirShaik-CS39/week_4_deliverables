@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 from fastapi import Depends
-
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from fastapi import BackgroundTasks
+from app.tasks.email_tasks import send_welcome_email
 from app.database.session import get_db
 
 from app.schemas.user import (
@@ -25,18 +25,27 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/register",
-    response_model=UserResponse
-)
+@router.post("/register")
 async def register(
     user: UserCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    return await AuthService.register(
+
+    new_user = await UserService.create_user(
         db,
         user
     )
+
+    background_tasks.add_task(
+        send_welcome_email,
+        new_user.email
+    )
+
+    return {
+        "message": "User registered",
+        "email": new_user.email
+    }
 
 
 @router.post(

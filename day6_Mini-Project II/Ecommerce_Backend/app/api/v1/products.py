@@ -4,15 +4,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import get_db
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.services.product_service import ProductService
+from app.core.websocket_manager import manager
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
 # CREATE
 @router.post("", response_model=ProductResponse)
-async def create_product(data: ProductCreate, db: AsyncSession = Depends(get_db)):
-    return await ProductService.create_product(db, data)
+async def create_product(
+    data: ProductCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    product = await ProductService.create_product(
+        db,
+        data
+    )
 
+    await manager.broadcast({
+        "event": "new_product",
+        "product_id": product.id,
+        "name": product.name
+    })
+
+    return product
+    
 
 # LIST (SEARCH + FILTER + PAGINATION + SORT)
 @router.get("")

@@ -111,3 +111,35 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+
+# =========================================================
+# ✅ WEBSOCKET JWT VERIFICATION (NEW ADDITION ONLY)
+# =========================================================
+def verify_websocket_token(token: str):
+    """
+    Lightweight JWT verification for WebSocket connections.
+    (NO DB CALLS — only decode token safely)
+    """
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+
+        user_id = payload.get("sub") or payload.get("user_id")
+        is_admin = payload.get("is_admin", False)
+
+        if user_id is None:
+            return None
+
+        return {
+            "user_id": int(user_id),
+            "is_admin": is_admin,
+            "payload": payload
+        }
+
+    except JWTError:
+        return None
